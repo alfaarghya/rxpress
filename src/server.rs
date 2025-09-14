@@ -1,5 +1,12 @@
-use std::io::{BufRead, BufReader, Write};
+use std::collections::HashMap;
+use std::io::{BufRead, BufReader, Lines, Read};
 use std::net::{TcpListener, TcpStream};
+
+use crate::request::Request;
+use crate::response::Response;
+use crate::router::Router;
+
+pub type Handler = fn(&Request, &mut Response);
 
 /// A simple HTTP server for handling requests.
 ///
@@ -8,12 +15,16 @@ use std::net::{TcpListener, TcpStream};
 /// use rxpress::Server;
 ///
 /// fn main() {
-///     let app = Server::new("8080");
+///     let mut app = Server::new("8080");
+///     app.get("/", |_req, res| {
+///         res.send("Hello, world!");
+///     });
 ///     app.run();
 /// }
 /// ```
 pub struct Server {
     address: String,
+    router: Router,
 }
 
 impl Server {
@@ -33,10 +44,147 @@ impl Server {
         let localhost: &str = "127.0.0.1";
         let address = format!("{}:{}", localhost, port);
 
-        Server { address }
+        Server {
+            address,
+            router: Router::new(),
+        }
+    }
+
+    /// Registers a handler for the GET method at the given path.
+    ///
+    /// # Example
+    /// ```
+    /// use rxpress::Server;
+    ///
+    /// fn main() {
+    ///     let mut app = Server::new("3000");
+    ///     app.get("/", |_req, res| {
+    ///         res.send("Hello from rxpress with GET method!");
+    ///     });
+    /// }
+    /// ```
+    pub fn get(&mut self, path: &str, handler: Handler) {
+        self.router.add_route("GET", path, handler);
+    }
+
+    /// Registers a handler for the POST method at the given path.
+    ///
+    /// # Example
+    /// ```
+    /// use rxpress::Server;
+    ///
+    /// fn main() {
+    ///     let mut app = Server::new("3000");
+    ///     app.post("/submit", |_req, res| {
+    ///         res.json(r#"{"status":"ok"}"#);
+    ///     });
+    /// }
+    /// ```
+    pub fn post(&mut self, path: &str, handler: Handler) {
+        self.router.add_route("POST", path, handler);
+    }
+
+    /// Registers a handler for the PUT method at the given path.
+    ///
+    /// # Example
+    /// ```
+    /// use rxpress::Server;
+    ///
+    /// fn main() {
+    ///     let mut app = Server::new("3000");
+    ///     app.put("/update", |_req, res| {
+    ///         res.send("Resource updated");
+    ///     });
+    /// }
+    /// ```
+    pub fn put(&mut self, path: &str, handler: Handler) {
+        self.router.add_route("PUT", path, handler);
+    }
+
+    /// Registers a handler for the DELETE method at the given path.
+    ///
+    /// # Example
+    /// ```
+    /// use rxpress::Server;
+    ///
+    /// fn main() {
+    ///     let mut app = Server::new("3000");
+    ///     app.delete("/remove", |_req, res| {
+    ///         res.send("Deleted!");
+    ///     });
+    /// }
+    /// ```
+    pub fn delete(&mut self, path: &str, handler: Handler) {
+        self.router.add_route("DELETE", path, handler);
+    }
+
+    /// Registers a handler for the PATCH method at the given path.
+    ///
+    /// # Example
+    /// ```
+    /// use rxpress::Server;
+    ///
+    /// fn main() {
+    ///     let mut app = Server::new("3000");
+    ///     app.patch("/modify", |_req, res| {
+    ///         res.send("Patched!");
+    ///     });
+    /// }
+    /// ```
+    pub fn patch(&mut self, path: &str, handler: Handler) {
+        self.router.add_route("PATCH", path, handler);
+    }
+
+    /// Registers a handler for the OPTIONS method at the given path.
+    ///
+    /// # Example
+    /// ```
+    /// use rxpress::Server;
+    ///
+    /// fn main() {
+    ///     let mut app = Server::new("3000");
+    ///     app.options("/any", |_req, res| {
+    ///         res.set_header("Allow", "GET, POST, OPTIONS");
+    ///         res.send("Allowed methods listed");
+    ///     });
+    /// }
+    /// ```
+    pub fn options(&mut self, path: &str, handler: Handler) {
+        self.router.add_route("OPTIONS", path, handler);
+    }
+
+    /// Registers a handler for the HEAD method at the given path.
+    ///
+    /// # Example
+    /// ```
+    /// use rxpress::Server;
+    ///
+    /// fn main() {
+    ///     let mut app = Server::new("3000");
+    ///     app.head("/check", |_req, res| {
+    ///         res.set_header("Content-Length", "0");
+    ///     });
+    /// }
+    /// ```
+    pub fn head(&mut self, path: &str, handler: Handler) {
+        self.router.add_route("HEAD", path, handler);
     }
 
     /// Starts listening for incoming TCP connections.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use rxpress::Server;
+    ///
+    /// fn main() {
+    ///     let mut app = Server::new("3000");
+    ///     app.get("/", |_req, res| {
+    ///         res.send("Hello world!");
+    ///     });
+    ///
+    ///     app.run(); // blocks forever
+    /// }
+    /// ```
     ///
     /// This function will block the current thread until the server is stopped.
     pub fn run(&self) {
@@ -52,24 +200,88 @@ impl Server {
         }
     }
 
-    /// Handles an incoming client connection.
-    ///
-    /// Reads a basic HTTP request and responds with a static message.
-    fn handle_connection(&self, mut stream: TcpStream) {
-        let buf_reader = BufReader::new(&stream);
-        let request_line = buf_reader.lines().next().unwrap().unwrap();
-
-        println!("[request] {}", request_line);
-
-        let response =
-            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello from rxpress server!";
-        stream.write_all(response.as_bytes()).unwrap();
-        stream.flush().unwrap();
-    }
-
     /// Returns the server's full address (`127.0.0.1:<port>`).
     pub fn address(&self) -> &str {
         &self.address
+    }
+
+    /* ---- Private Functions ---- */
+    // Handles an incoming client connection.
+    ///
+    /// Reads a basic HTTP request and responds with a static message.
+    fn handle_connection(&self, mut stream: TcpStream) {
+        let mut buf_reader = BufReader::new(&stream);
+        let mut lines = buf_reader.by_ref().lines();
+
+        //Request URL
+        let request_line = self.get_request_line(&mut lines);
+        // println!("[request] {}", request_line);
+
+        //Request Headers
+        let headers = self.get_headers(&mut lines);
+        // println!("[headers] {:?}", headers);
+
+        // Body
+        let body = self.get_body(&headers, &mut buf_reader);
+        // println!("[body] {}", body);
+
+        let mut req = Request::new(&request_line, headers, body);
+        let mut res = Response::new(&mut stream);
+
+        // res.send("Hello from rxpress server!");
+        // res.json(r#"{"message":"hello world"}"#);
+
+        self.router.handle(&mut req, &mut res);
+    }
+
+    // get HTTP request(method, path, version)
+    fn get_request_line(&self, lines: &mut Lines<&mut BufReader<&TcpStream>>) -> String {
+        lines.next().unwrap().unwrap()
+    }
+
+    //get all headers
+    fn get_headers(
+        &self,
+        lines: &mut Lines<&mut BufReader<&TcpStream>>,
+    ) -> HashMap<String, String> {
+        let mut map: HashMap<String, String> = HashMap::new();
+
+        while let Some(Ok(line)) = lines.next() {
+            // no header -> break the loop
+            if line.is_empty() {
+                break;
+            }
+
+            // split headers with ':' & store as key-value pair
+            if let Some((key, val)) = line.split_once(":") {
+                map.insert(
+                    key.trim().to_string().to_ascii_lowercase(), //put keys as lowercase
+                    val.trim().to_string(),
+                );
+            }
+        }
+
+        map
+    }
+
+    //get complete body
+    fn get_body(
+        &self,
+        headers: &HashMap<String, String>,
+        buf_reader: &mut BufReader<&TcpStream>,
+    ) -> String {
+        let mut str = String::new();
+
+        // find the body with 'content-length' key
+        if let Some(len) = headers.get("content-length") {
+            if let Ok(size) = len.parse::<usize>() {
+                let mut buffer = vec![0; size];
+                buf_reader.read_exact(&mut buffer).unwrap();
+                str = String::from_utf8_lossy(&buffer).to_string();
+            }
+        }
+
+        str
     }
 }
 
