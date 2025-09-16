@@ -3,7 +3,13 @@ name = "rxpress"
 license = "MIT"
 version = "0.2.0"
 edition = "2024"
+authors = ["Arghya Das <arghya.coding@gmail.com>"]
 description = "rxpress is an open-source server library in Rust similar to express in NodeJS. Built from the ground up with a focus on learning and building modern HTTP servers."
+# homepage = "https://crates.io/crates/rxpress"
+documentation = "https://docs.rs/rxpress"
+repository = "https://github.com/alfaarghya/rxpress"
+keywords = ["rxpress", "http", "server", "http-server", "backend", "web"]
+categories = ["http-server", "server", "web-programming"]
 
 [lib]
 name = "rxpress"
