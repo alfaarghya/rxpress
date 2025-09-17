@@ -194,6 +194,34 @@ impl HttpStatus {
     }
 }
 
+/// Internal enum to support flexible `Response::status` usage.
+pub enum StatusArg<'a> {
+    /// Standard enum variant
+    Enum(HttpStatus),
+    /// Numeric code only
+    Code(u16),
+    /// Numeric code + custom reason
+    CodeReason(u16, &'a str),
+}
+
+impl<'a> From<HttpStatus> for StatusArg<'a> {
+    fn from(s: HttpStatus) -> Self {
+        StatusArg::Enum(s)
+    }
+}
+
+impl<'a> From<u16> for StatusArg<'a> {
+    fn from(code: u16) -> Self {
+        StatusArg::Code(code)
+    }
+}
+
+impl<'a> From<(u16, &'a str)> for StatusArg<'a> {
+    fn from(tuple: (u16, &'a str)) -> Self {
+        StatusArg::CodeReason(tuple.0, tuple.1)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -213,5 +241,28 @@ mod tests {
         assert_eq!(HttpStatus::reason(404), "Not Found");
         assert_eq!(HttpStatus::reason(418), "I'm a Teapot");
         assert_ne!(HttpStatus::reason(418), "I'm a teapot");
+    }
+
+    // TEST - status args
+    #[test]
+    fn test_status_arg_from() {
+        let a: StatusArg = HttpStatus::OK.into();
+        match a {
+            StatusArg::Enum(HttpStatus::OK) => (),
+            _ => panic!("Expected StatusArg::Enum(HttpStatus::OK)"),
+        }
+
+        let b: StatusArg = 404.into();
+        match b {
+            StatusArg::Code(404) => (),
+            _ => panic!("Expected StatusArg::Code(404)"),
+        }
+
+        let c: StatusArg = (599, "Timeout").into();
+        match c {
+            StatusArg::CodeReason(599, "Timeout") => (),
+            _ => panic!("Expected StatusArg::CodeReason(599, \"Timeout\")"),
+            // _ => (),
+        }
     }
 }
