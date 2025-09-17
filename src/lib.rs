@@ -115,7 +115,9 @@ pub mod response;
 pub mod route;
 pub mod router;
 pub mod server;
+pub mod status;
 
 pub use request::Request;
 pub use response::Response;
 pub use server::Server;
+pub use status::HttpStatus;
