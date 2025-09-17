@@ -6,7 +6,7 @@ use std::net::TcpStream;
 ///
 /// Used by route handlers to set status codes, headers, and send body content.
 pub struct Response<'a> {
-    pub stream: &'a mut TcpStream,
+    stream: &'a mut TcpStream,
     pub headers: HashMap<String, String>,
     pub status: u16,
 }
