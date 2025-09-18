@@ -1,7 +1,7 @@
 [package]
 name = "rxpress"
 license = "MIT"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2024"
 authors = ["Arghya Das <arghya.coding@gmail.com>"]
 description = "rxpress is an open-source server library in Rust similar to express in NodeJS. Built from the ground up with a focus on learning and building modern HTTP servers."
