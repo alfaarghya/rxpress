@@ -1,3 +1,24 @@
+//! # Server Module
+//!
+//! This module provides the core [`Server`] struct, which manages the HTTP server,
+//! registers routes, and dispatches requests to handlers.  
+//! It is the main entrypoint when building apps with `rxpress`.
+//!
+//! ## Example
+//! ```no_run
+//! use rxpress::Server;
+//!
+//! fn main() {
+//!     let mut app = Server::new("8080");
+//!
+//!     app.get("/", |_req, res| {
+//!         res.send("Hello, world!");
+//!     });
+//!
+//!     app.run(); // blocks forever
+//! }
+//! ```
+
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Lines, Read};
 use std::net::{TcpListener, TcpStream};
@@ -6,9 +27,23 @@ use crate::request::Request;
 use crate::response::Response;
 use crate::router::Router;
 
+/// Type alias for a request handler function.
+///
+/// Handlers receive the [`Request`] and a mutable reference to the [`Response`].
+///
+/// ```no_run
+/// use rxpress::{Request, Response};
+///
+/// fn handler(_req: &Request, res: &mut Response) {
+///     res.send("Hello!");
+/// }
+/// ```
 pub type Handler = fn(&Request, &mut Response);
 
 /// A simple HTTP server for handling requests.
+///
+/// The [`Server`] manages a [`Router`] internally, where routes are registered
+/// using convenience methods such as [`Server::get`] or [`Server::post`].
 ///
 /// # Example
 /// ```no_run
