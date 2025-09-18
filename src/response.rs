@@ -18,6 +18,7 @@
 //! ```
 
 use std::collections::HashMap;
+use std::fs;
 use std::io::Write;
 use std::net::TcpStream;
 
@@ -166,6 +167,67 @@ impl<'a> Response<'a> {
         self.write_response(msg.as_bytes());
     }
 
+    /// Sends an HTML response with `Content-Type: text/html; charset=utf-8`.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use rxpress::Server;
+    ///
+    /// let mut app = Server::new("8080");
+    ///
+    /// app.get("/page", |_, res| {
+    ///     res.html("<h1>Hello</h1><p>HTML response</p>");
+    /// });
+    /// ```
+    pub fn html(&mut self, body: &str) {
+        if self.sent {
+            eprintln!(
+                "[rxpress warning!]: response already sent, ignoring subsequent html() call."
+            );
+            return;
+        }
+        self.sent = true; // mark as sent
+        self.set_header("Content-Type", "text/html; charset=utf-8");
+        self.write_response(body.as_bytes());
+    }
+
+    /// Sends the contents of an HTML file with `Content-Type: text/html; charset=utf-8`.
+    /// If the file cannot be read, responds with `500 Internal Server Error`.
+    ///
+    /// # Example
+    /// ```no_run
+    /// use rxpress::Server;
+    ///
+    /// let mut app = Server::new("8080");
+    ///
+    /// app.get("/home", |_, res| {
+    ///     res.html_file("index.html");
+    /// });
+    /// ```
+    pub fn html_file(&mut self, path: &str) {
+        if self.sent {
+            eprintln!(
+                "[rxpress warning!]: response already sent, ignoring subsequent html_file() call."
+            );
+            return;
+        }
+        self.sent = true; // mark as sent
+        self.set_header("Content-Type", "text/html; charset=utf-8");
+        match fs::read_to_string(path) {
+            Ok(content) => {
+                self.write_response(content.as_bytes());
+            }
+            Err(_) => {
+                let body = &format!(
+                    "<h2>Internal Server Error</h2>\n<p>No file found on {}</p>",
+                    path
+                );
+                self.status(HttpStatus::InternalServerError);
+                self.write_response(body.as_bytes());
+            }
+        }
+    }
+
     /*---- Private Functions ----*/
     /// Send header & response message
     fn write_response(&mut self, msg: &[u8]) {
@@ -254,5 +316,44 @@ mod tests {
             res2.headers.get("Content-Type"),
             Some(&"application/json".to_string())
         );
+    }
+
+    // TEST - html response sets proper content type
+    #[test]
+    fn test_html_sets_content_type() {
+        let (_c, mut s) = tcp_pair();
+        let mut res = Response::new(&mut s);
+        res.html("<h1>Test</h1>");
+        assert!(res.sent);
+        assert_eq!(
+            res.headers.get("Content-Type"),
+            Some(&"text/html; charset=utf-8".to_string())
+        );
+    }
+
+    // TEST - html_file loads file contents
+    #[test]
+    fn test_html_file_success_and_failure() {
+        // success case
+        let tmp_file = "test_html_file.html";
+        fs::write(tmp_file, "<h1>Hello</h1>").unwrap();
+
+        let (_c, mut s) = tcp_pair();
+        let mut res = Response::new(&mut s);
+        res.html_file(tmp_file);
+        assert!(res.sent);
+        assert_eq!(
+            res.headers.get("Content-Type"),
+            Some(&"text/html; charset=utf-8".to_string())
+        );
+
+        fs::remove_file(tmp_file).unwrap();
+
+        // failure case (missing file → 500)
+        let (_c2, mut s2) = tcp_pair();
+        let mut res2 = Response::new(&mut s2);
+        res2.html_file("missing_file.html");
+        assert!(res2.sent);
+        assert_eq!(res2.status_code, 500);
     }
 }
