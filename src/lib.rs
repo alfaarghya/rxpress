@@ -2,6 +2,12 @@
 //!
 //! `rxpress` is a minimal HTTP server framework inspired by Express.js, written in Rust.
 //!
+//! ## Features
+//! - Define routes for all major HTTP methods (GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD)
+//! - Route parameters and query parameters support
+//! - Custom response headers and status codes
+//! - Minimalistic, synchronous design
+//!
 //! ## Quick Start
 //!
 //! ```no_run
@@ -23,6 +29,13 @@
 //!     app.run(); // blocks forever
 //! }
 //! ```
+//! ## Module Overview
+//! - [`request`] - Defines the [`Request`] struct for accessing request data.
+//! - [`response`] - Defines the [`Response`] struct for sending responses.
+//! - [`route`] - Defines a single route with path, method, and handler.
+//! - [`router`] - Handles route registration and request dispatching.
+//! - [`server`] - The main [`Server`] struct to run the HTTP server.
+//! - [`status`] - Standard HTTP status codes as [`HttpStatus`] enum.
 //!
 //! ## Route Parameters
 //!
@@ -75,6 +88,97 @@
 //!     app.get("/headers", |_req, res| {
 //!         res.set_header("X-Custom-Header", "rxpress")
 //!            .send("Custom header sent!");
+//!     });
+//!
+//!     app.run();
+//! }
+//! ```
+//! ## Custom Status Examples
+//!
+//! Demonstrates using `status()` with enum, numeric codes, and custom reason.
+//! Only the first response (`send()` or `json()`) will be sent; subsequent calls
+//! will print a warning and be ignored.
+//!
+//! ### Example 1: Standard Enum
+//! ```no_run
+//! # use rxpress::{Server, HttpStatus};
+//! # fn main() {
+//! let mut app = Server::new("3000");
+//!
+//! app.get("/error_enum", |_req, res| {
+//!     res.status(HttpStatus::Forbidden).send("Forbidden!");
+//!     res.send("Ignored response"); // Will print warning
+//! });
+//!
+//! app.run();
+//! # }
+//! ```
+//!
+//! ### Example 2: Custom Code
+//! ```no_run
+//! # use rxpress::Server;
+//! # fn main() {
+//! let mut app = Server::new("3000");
+//!
+//! app.get("/error_code", |_req, res| {
+//!     res.status(511).json(r#"{"error":"Network Auth Required"}"#);
+//!     res.json(r#"{"ignored": true}"#); // Will print warning
+//! });
+//!
+//! app.run();
+//! # }
+//! ```
+//!
+//! ### Example 3: Custom Code + Reason
+//! ```no_run
+//! # use rxpress::Server;
+//! # fn main() {
+//! let mut app = Server::new("3000");
+//!
+//! app.get("/error_custom", |_req, res| {
+//!     res.status((599, "Network Timeout")).send("Timeout!");
+//!     res.send("Ignored"); // Will print warning
+//! });
+//!
+//! app.run();
+//! # }
+//! ```
+//!
+//! ## HTML Responses
+//!
+//! You can use `html()` to send inline HTML with the proper `Content-Type`.
+//!
+//! ```no_run
+//! use rxpress::Server;
+//!
+//! fn main() {
+//!     let mut app = Server::new("3000");
+//!
+//!     app.get("/page", |_req, res| {
+//!         res.html("<h1>Hello from rxpress!</h1><p>This is HTML.</p>");
+//!     });
+//!
+//!     app.run();
+//! }
+//! ```
+//!
+//! ## Serving HTML Files
+//!
+//! Use `html_file()` to serve HTML from disk. If the file is missing or unreadable,
+//! a `500 Internal Server Error` is automatically returned.
+//!
+//! ```no_run
+//! use rxpress::Server;
+//!
+//! fn main() {
+//!     let mut app = Server::new("3000");
+//!
+//!     app.get("/home", |_req, res| {
+//!         res.html_file("index.html");
+//!     });
+//!
+//!     app.get("/about", |_req, res| {
+//!         res.html_file("about.html");
 //!     });
 //!
 //!     app.run();
