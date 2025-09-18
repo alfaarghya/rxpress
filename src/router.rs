@@ -1,3 +1,4 @@
+use crate::HttpStatus;
 use crate::request::Request;
 use crate::response::Response;
 use crate::route::Route;
@@ -28,6 +29,6 @@ impl Router {
             }
         }
 
-        res.status(404).send("404 Not Found");
+        res.status(HttpStatus::NotFound).send("404 Not Found");
     }
 }
