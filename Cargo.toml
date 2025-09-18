@@ -9,7 +9,7 @@ description = "rxpress is an open-source server library in Rust similar to expre
 documentation = "https://docs.rs/rxpress"
 repository = "https://github.com/alfaarghya/rxpress"
 keywords = ["rxpress", "http", "server", "http-server", "backend"]
-categories = ["http-server", "server", "web-programming"]
+categories = ["web-programming", "web-programming::http-server"]
 
 [lib]
 name = "rxpress"
