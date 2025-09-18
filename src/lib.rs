@@ -37,6 +37,45 @@
 //! - [`server`] - The main [`Server`] struct to run the HTTP server.
 //! - [`status`] - Standard HTTP status codes as [`HttpStatus`] enum.
 //!
+//! ## Request Helpers
+//! The [`Request`](crate::Request) struct provides convenient helpers for
+//! accessing headers, query parameters, path parameters, body, and more.
+//!
+//! ### Headers
+//!
+//! ```no_run
+//! use rxpress::Server;
+//!
+//! fn main() {
+//!     let mut app = Server::new("3000");
+//!
+//!     // header()
+//!     app.get("/headers", |req, res| {
+//!         if let Some(ua) = req.header("User-Agent") {
+//!             res.send(&format!("Your User-Agent: {}", ua));
+//!         } else {
+//!             res.send("User-Agent not found");
+//!         }
+//!     });
+//!
+//!     // header_or()
+//!     app.get("/host", |req, res| {
+//!         let host = req.header_or("Host", "localhost");
+//!         res.send(&format!("Host: {}", host));
+//!     });
+//!
+//!     // header_expect()
+//!     app.get("/auth", |req, res| {
+//!         match req.header_expect("Authorization") {
+//!             Ok(token) => res.send(&format!("Token: {}", token)),
+//!             Err(err) => res.status(400).send(&err),
+//!         }
+//!     });
+//!
+//!     app.run();
+//! }
+//! ```
+//!
 //! ## Route Parameters
 //!
 //! ```no_run
@@ -45,11 +84,26 @@
 //! fn main() {
 //!     let mut app = Server::new("3000");
 //!
+//!     // param()
 //!     app.get("/users/:id", |req, res| {
 //!         if let Some(id) = req.param("id") {
 //!             res.send(&format!("User ID: {}", id));
 //!         } else {
-//!             res.status(400).send("Missing ID");
+//!             res.send("Missing user ID");
+//!         }
+//!     });
+//!
+//!     // param_or()
+//!     app.get("/items/:id", |req, res| {
+//!         let user_id = req.param_or("id", "0");
+//!         res.send(&format!("User ID (or default): {}", user_id));
+//!     });
+//!
+//!     // param_expect()
+//!     app.get("/secure/:id", |req, res| {
+//!         match req.param_expect("id") {
+//!             Ok(id) => res.send(&format!("Secure User ID: {}", id)),
+//!             Err(err) => res.status(400).send(&err),
 //!         }
 //!     });
 //!
@@ -57,7 +111,7 @@
 //! }
 //! ```
 //!
-//! ## Query Parameters
+//! ### Query Parameters
 //!
 //! ```no_run
 //! use rxpress::Server;
@@ -65,11 +119,26 @@
 //! fn main() {
 //!     let mut app = Server::new("3000");
 //!
+//!     // query()
 //!     app.get("/search", |req, res| {
-//!         if let Some(query) = req.query("q") {
-//!             res.send(&format!("Searching for: {}", query));
+//!         if let Some(q) = req.query("q") {
+//!             res.send(&format!("Searching for: {}", q));
 //!         } else {
-//!             res.status(400).send("Missing query parameter `q`");
+//!             res.send("Missing query param `q`");
+//!         }
+//!     });
+//!
+//!     // query_or()
+//!     app.get("/history", |req, res| {
+//!         let query = req.query_or("q", "none");
+//!         res.send(&format!("Query (or default): {}", query));
+//!     });
+//!
+//!     // query_expect()
+//!     app.get("/secure_search", |req, res| {
+//!         match req.query_expect("q") {
+//!             Ok(q) => res.send(&format!("Secure search for: {}", q)),
+//!             Err(err) => res.status(400).send(&err),
 //!         }
 //!     });
 //!
@@ -77,7 +146,7 @@
 //! }
 //! ```
 //!
-//! ## Custom Headers
+//! ### Custom Headers
 //!
 //! ```no_run
 //! use rxpress::Server;
@@ -93,13 +162,19 @@
 //!     app.run();
 //! }
 //! ```
-//! ## Custom Status Examples
+//!
+//! ## Response Helper
+//!
+//!  The [`Response`] struct represents the outgoing HTTP response.  
+//! It allows setting headers, status codes, and sending text, JSON, or HTML responses.
+//!
+//! ### Custom Status Examples
 //!
 //! Demonstrates using `status()` with enum, numeric codes, and custom reason.
 //! Only the first response (`send()` or `json()`) will be sent; subsequent calls
 //! will print a warning and be ignored.
 //!
-//! ### Example 1: Standard Enum
+//! #### Example 1: Standard Enum
 //! ```no_run
 //! # use rxpress::{Server, HttpStatus};
 //! # fn main() {
@@ -114,7 +189,7 @@
 //! # }
 //! ```
 //!
-//! ### Example 2: Custom Code
+//! #### Example 2: Custom Code
 //! ```no_run
 //! # use rxpress::Server;
 //! # fn main() {
@@ -129,7 +204,7 @@
 //! # }
 //! ```
 //!
-//! ### Example 3: Custom Code + Reason
+//! #### Example 3: Custom Code + Reason
 //! ```no_run
 //! # use rxpress::Server;
 //! # fn main() {
@@ -144,7 +219,7 @@
 //! # }
 //! ```
 //!
-//! ## HTML Responses
+//! ### HTML Responses
 //!
 //! You can use `html()` to send inline HTML with the proper `Content-Type`.
 //!
@@ -162,7 +237,7 @@
 //! }
 //! ```
 //!
-//! ## Serving HTML Files
+//! ### Serving HTML Files
 //!
 //! Use `html_file()` to serve HTML from disk. If the file is missing or unreadable,
 //! a `500 Internal Server Error` is automatically returned.
@@ -185,7 +260,7 @@
 //! }
 //! ```
 //!
-//! ## Multiple Methods
+//! ### Multiple Methods
 //!
 //! ```no_run
 //! use rxpress::Server;
