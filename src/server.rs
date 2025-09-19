@@ -60,6 +60,7 @@ pub type Handler = fn(&Request, &mut Response);
 pub struct Server {
     address: String,
     router: Router,
+    log_msg: Option<String>,
 }
 
 impl Server {
@@ -82,6 +83,7 @@ impl Server {
         Server {
             address,
             router: Router::new(),
+            log_msg: None,
         }
     }
 
@@ -222,10 +224,16 @@ impl Server {
     /// ```
     ///
     /// This function will block the current thread until the server is stopped.
-    pub fn run(&self) {
+    pub fn run(&mut self) {
         let listener = TcpListener::bind(&self.address).expect("Failed to bind port");
 
-        println!("[rxpress] running on http://{} ⚙️", self.address);
+        match &self.log_msg {
+            Some(msg) => {
+                println!("{}", msg);
+                self.log_msg = None;
+            }
+            None => println!("[rxpress] running on http://{} ⚙️", self.address),
+        }
 
         for stream in listener.incoming() {
             match stream {
@@ -233,6 +241,23 @@ impl Server {
                 Err(err) => eprintln!("Connection failed: {}", err),
             }
         }
+    }
+
+    /// Receive messages from user that can be logged later
+    ///
+    /// # Example
+    /// ```no_run
+    /// use rxpress::Server;
+    ///
+    /// fn main() {
+    ///     let mut app = Server::new("3000");
+    ///
+    ///     app.log("Server is up!!").run(); // Now server can print custom log
+    /// }
+    /// ```
+    pub fn log(&mut self, msg: &str) -> &mut Self {
+        self.log_msg = Some(msg.to_string());
+        self
     }
 
     /// Returns the server's full address (`127.0.0.1:<port>`).
