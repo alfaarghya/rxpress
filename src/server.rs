@@ -19,12 +19,11 @@
 //! }
 //! ```
 
-use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Lines, Read};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
 
-use crate::request::Request;
-use crate::response::Response;
+use crate::connection::handle_connection;
+use crate::http::request::Request;
+use crate::http::response::Response;
 use crate::router::Router;
 
 /// Type alias for a request handler function.
@@ -237,7 +236,7 @@ impl Server {
 
         for stream in listener.incoming() {
             match stream {
-                Ok(stream) => self.handle_connection(stream),
+                Ok(stream) => handle_connection(stream, &self.router),
                 Err(err) => eprintln!("Connection failed: {}", err),
             }
         }
@@ -263,108 +262,6 @@ impl Server {
     /// Returns the server's full address (`127.0.0.1:<port>`).
     pub fn address(&self) -> &str {
         &self.address
-    }
-
-    /* ---- Private Functions ---- */
-    // Handles an incoming client connection.
-    ///
-    /// Reads a basic HTTP request and responds with a static message.
-    fn handle_connection(&self, mut stream: TcpStream) {
-        let mut buf_reader = BufReader::new(&stream);
-        let mut lines = buf_reader.by_ref().lines();
-
-        //Request URL
-        let request_line = match self.get_request_line(&mut lines) {
-            Ok(line) => line,
-            Err(_) => return,
-        };
-        // println!("[request] {}", request_line);
-
-        //Request Headers
-        let headers = self.get_headers(&mut lines);
-        // println!("[headers] {:?}", headers);
-
-        // Body
-        let body = match self.get_body(&headers, &mut buf_reader) {
-            Ok(b) => b,
-            Err(_) => return,
-        };
-        // println!("[body] {}", body);
-
-        let mut req = Request::new(&request_line, headers, body);
-        let mut res = Response::new(&mut stream);
-
-        // res.send("Hello from rxpress server!");
-        // res.json(r#"{"message":"hello world"}"#);
-
-        self.router.handle(&mut req, &mut res);
-    }
-
-    // get HTTP request(method, path, version)
-    fn get_request_line(
-        &self,
-        lines: &mut Lines<&mut BufReader<&TcpStream>>,
-    ) -> Result<String, &'static str> {
-        match lines.next() {
-            Some(Ok(line)) => Ok(line),
-            Some(Err(e)) => {
-                eprintln!("[rxpress error]: failed to read request line: {}", e);
-                Err("failed to read request line")
-            }
-            None => {
-                eprintln!("[rxpress error]: client disconnected before sending request line");
-                Err("no request line")
-            }
-        }
-    }
-
-    //get all headers
-    fn get_headers(
-        &self,
-        lines: &mut Lines<&mut BufReader<&TcpStream>>,
-    ) -> HashMap<String, String> {
-        let mut map: HashMap<String, String> = HashMap::new();
-
-        while let Some(line_result) = lines.next() {
-            match line_result {
-                Ok(line) => {
-                    if line.is_empty() {
-                        break;
-                    }
-                    if let Some((key, val)) = line.split_once(":") {
-                        map.insert(key.trim().to_ascii_lowercase(), val.trim().to_string());
-                    } else {
-                        eprintln!("[rxpress warning]: malformed header '{}'", line);
-                    }
-                }
-                Err(_) => break, // ignore malformed header line instead of panicking
-            }
-        }
-
-        map
-    }
-
-    //get complete body
-    fn get_body(
-        &self,
-        headers: &HashMap<String, String>,
-        buf_reader: &mut BufReader<&TcpStream>,
-    ) -> Result<String, &'static str> {
-        // find the body with 'content-length' key
-        if let Some(len) = headers.get("content-length") {
-            if let Ok(size) = len.parse::<usize>() {
-                let mut buffer = vec![0; size];
-                return match buf_reader.read_exact(&mut buffer) {
-                    Ok(_) => Ok(String::from_utf8_lossy(&buffer).to_string()),
-                    Err(e) => {
-                        eprintln!("[rxpress error]: failed to read body: {}", e);
-                        Err("failed to read body")
-                    }
-                };
-            }
-        }
-
-        Ok(String::new()) // no body
     }
 }
 

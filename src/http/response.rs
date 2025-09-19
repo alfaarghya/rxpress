@@ -22,7 +22,7 @@ use std::fs;
 use std::io::Write;
 use std::net::TcpStream;
 
-use crate::status::{HttpStatus, StatusArg};
+use crate::http::status::{HttpStatus, StatusArg};
 
 /// Represents an HTTP response.
 ///

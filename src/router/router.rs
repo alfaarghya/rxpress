@@ -1,7 +1,7 @@
 use crate::HttpStatus;
-use crate::request::Request;
-use crate::response::Response;
-use crate::route::Route;
+use crate::http::request::Request;
+use crate::http::response::Response;
+use crate::router::Route;
 use crate::server::Handler;
 
 /// Router manages all registered routes and dispatches requests.

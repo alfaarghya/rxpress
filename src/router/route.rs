@@ -1,4 +1,4 @@
-use crate::request::Request;
+use crate::http::request::Request;
 use crate::server::Handler;
 
 /// Represents a single route definition (method + path + handler).
