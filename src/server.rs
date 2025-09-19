@@ -249,7 +249,10 @@ impl Server {
         let mut lines = buf_reader.by_ref().lines();
 
         //Request URL
-        let request_line = self.get_request_line(&mut lines);
+        let request_line = match self.get_request_line(&mut lines) {
+            Ok(line) => line,
+            Err(_) => return,
+        };
         // println!("[request] {}", request_line);
 
         //Request Headers
@@ -257,7 +260,10 @@ impl Server {
         // println!("[headers] {:?}", headers);
 
         // Body
-        let body = self.get_body(&headers, &mut buf_reader);
+        let body = match self.get_body(&headers, &mut buf_reader) {
+            Ok(b) => b,
+            Err(_) => return,
+        };
         // println!("[body] {}", body);
 
         let mut req = Request::new(&request_line, headers, body);
@@ -270,8 +276,21 @@ impl Server {
     }
 
     // get HTTP request(method, path, version)
-    fn get_request_line(&self, lines: &mut Lines<&mut BufReader<&TcpStream>>) -> String {
-        lines.next().unwrap().unwrap()
+    fn get_request_line(
+        &self,
+        lines: &mut Lines<&mut BufReader<&TcpStream>>,
+    ) -> Result<String, &'static str> {
+        match lines.next() {
+            Some(Ok(line)) => Ok(line),
+            Some(Err(e)) => {
+                eprintln!("[rxpress error]: failed to read request line: {}", e);
+                Err("failed to read request line")
+            }
+            None => {
+                eprintln!("[rxpress error]: client disconnected before sending request line");
+                Err("no request line")
+            }
+        }
     }
 
     //get all headers
@@ -281,18 +300,19 @@ impl Server {
     ) -> HashMap<String, String> {
         let mut map: HashMap<String, String> = HashMap::new();
 
-        while let Some(Ok(line)) = lines.next() {
-            // no header -> break the loop
-            if line.is_empty() {
-                break;
-            }
-
-            // split headers with ':' & store as key-value pair
-            if let Some((key, val)) = line.split_once(":") {
-                map.insert(
-                    key.trim().to_string().to_ascii_lowercase(), //put keys as lowercase
-                    val.trim().to_string(),
-                );
+        while let Some(line_result) = lines.next() {
+            match line_result {
+                Ok(line) => {
+                    if line.is_empty() {
+                        break;
+                    }
+                    if let Some((key, val)) = line.split_once(":") {
+                        map.insert(key.trim().to_ascii_lowercase(), val.trim().to_string());
+                    } else {
+                        eprintln!("[rxpress warning]: malformed header '{}'", line);
+                    }
+                }
+                Err(_) => break, // ignore malformed header line instead of panicking
             }
         }
 
@@ -304,19 +324,22 @@ impl Server {
         &self,
         headers: &HashMap<String, String>,
         buf_reader: &mut BufReader<&TcpStream>,
-    ) -> String {
-        let mut str = String::new();
-
+    ) -> Result<String, &'static str> {
         // find the body with 'content-length' key
         if let Some(len) = headers.get("content-length") {
             if let Ok(size) = len.parse::<usize>() {
                 let mut buffer = vec![0; size];
-                buf_reader.read_exact(&mut buffer).unwrap();
-                str = String::from_utf8_lossy(&buffer).to_string();
+                return match buf_reader.read_exact(&mut buffer) {
+                    Ok(_) => Ok(String::from_utf8_lossy(&buffer).to_string()),
+                    Err(e) => {
+                        eprintln!("[rxpress error]: failed to read body: {}", e);
+                        Err("failed to read body")
+                    }
+                };
             }
         }
 
-        str
+        Ok(String::new()) // no body
     }
 }
 

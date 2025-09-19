@@ -247,9 +247,19 @@ impl<'a> Response<'a> {
             msg.len()
         );
 
-        self.stream.write_all(res.as_bytes()).unwrap();
-        self.stream.write_all(msg).unwrap();
-        self.stream.flush().unwrap();
+        if let Err(e) = self.stream.write_all(res.as_bytes()) {
+            eprintln!("[rxpress error]: failed to write headers: {}", e);
+            return;
+        }
+
+        if let Err(e) = self.stream.write_all(msg) {
+            eprintln!("[rxpress error]: failed to write body: {}", e);
+            return;
+        }
+
+        if let Err(e) = self.stream.flush() {
+            eprintln!("[rxpress error]: failed to flush stream: {}", e);
+        }
     }
 }
 
