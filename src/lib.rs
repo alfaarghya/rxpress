@@ -30,15 +30,15 @@
 //! }
 //! ```
 //! ## Module Overview
-//! - [`request`] - Defines the [`Request`] struct for accessing request data.
-//! - [`response`] - Defines the [`Response`] struct for sending responses.
-//! - [`route`] - Defines a single route with path, method, and handler.
-//! - [`router`] - Handles route registration and request dispatching.
-//! - [`server`] - The main [`Server`] struct to run the HTTP server.
-//! - [`status`] - Standard HTTP status codes as [`HttpStatus`] enum.
+//! - `request` - Defines the [`Request`] struct for accessing request data.
+//! - `response` - Defines the [`Response`] struct for sending responses.
+//! - `route` - Defines a single route with path, method, and handler.
+//! - `router` - Handles route registration and request dispatching.
+//! - `server` - The main [`Server`] struct to run the HTTP server.
+//! - `status` - Standard HTTP status codes as [`HttpStatus`] enum.
 //!
 //! ## Request Helpers
-//! The [`Request`](crate::Request) struct provides convenient helpers for
+//! The [`Request`] struct provides convenient helpers for
 //! accessing headers, query parameters, path parameters, body, and more.
 //!
 //! ### Headers
@@ -289,14 +289,12 @@
 //! }
 //! ```
 
-pub mod request;
-pub mod response;
-pub mod route;
-pub mod router;
-pub mod server;
-pub mod status;
+mod connection;
+mod http;
+mod router;
+mod server;
 
-pub use request::Request;
-pub use response::Response;
+pub use http::request::Request;
+pub use http::response::Response;
+pub use http::status::HttpStatus;
 pub use server::Server;
-pub use status::HttpStatus;
